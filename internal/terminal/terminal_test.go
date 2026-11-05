@@ -20,8 +20,8 @@ func TestRingBufferBasic(t *testing.T) {
 func TestRingBufferWrap(t *testing.T) {
 	rb := NewRingBuffer(8)
 
-	rb.Write([]byte("abcdefgh"))  // fills exactly
-	rb.Write([]byte("ij"))        // wraps: should be "cdefghij"
+	rb.Write([]byte("abcdefgh")) // fills exactly
+	rb.Write([]byte("ij"))       // wraps: should be "cdefghij"
 
 	got := string(rb.Bytes())
 	if got != "cdefghij" {
@@ -274,6 +274,8 @@ func TestManagerShutdown(t *testing.T) {
 }
 
 func TestEnvFuncInjection(t *testing.T) {
+	t.Setenv("SHELL", "/bin/sh")
+
 	mgr := NewManager(func(sessionID string) []string {
 		return []string{"BEANS_WORKSPACE_PORT=44000"}
 	})
@@ -425,4 +427,3 @@ func TestCreateWithCommandEnvFunc(t *testing.T) {
 		}
 	}
 }
-

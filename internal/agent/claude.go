@@ -165,17 +165,19 @@ func (m *Manager) spawnAndRun(beanID string, session *Session) {
 
 	// Send the initial user message, prepending bean context on first spawn
 	// and any file attachment context from @-mentions
-	lastMsg := session.Messages[len(session.Messages)-1]
-	initialMsg := lastMsg.ContextPrefix + lastMsg.Content
-	if session.SessionID == "" && m.contextProvider != nil {
-		if ctx := m.contextProvider(beanID); ctx != "" {
-			initialMsg = ctx + "\n\n---\n\n" + initialMsg
+	if len(session.Messages) > 0 {
+		lastMsg := session.Messages[len(session.Messages)-1]
+		initialMsg := lastMsg.ContextPrefix + lastMsg.Content
+		if session.SessionID == "" && m.contextProvider != nil {
+			if ctx := m.contextProvider(beanID); ctx != "" {
+				initialMsg = ctx + "\n\n---\n\n" + initialMsg
+			}
 		}
-	}
-	if err := m.sendToProcess(proc, beanID, initialMsg, lastMsg.Images); err != nil {
-		m.setError(beanID, fmt.Sprintf("send initial message: %v", err))
-		proc.kill()
-		return
+		if err := m.sendToProcess(proc, beanID, initialMsg, lastMsg.Images); err != nil {
+			m.setError(beanID, fmt.Sprintf("send initial message: %v", err))
+			proc.kill()
+			return
+		}
 	}
 
 	// Read stdout line by line
@@ -218,10 +220,10 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string, pr
 	var toolInputBuf strings.Builder
 	var toolMsgIdx int = -1
 	var toolName string
-	var toolInvIdx int = -1 // index into session.ToolInvocations
+	var toolInvIdx int = -1     // index into session.ToolInvocations
 	var pendingToolPersist bool // true when current tool msg hasn't been persisted yet
-	var deferredAskUser bool // true when AskUserQuestion detected, waiting for input to complete
-	var blocked bool         // true after handleBlockingTool — suppresses ensureRunning
+	var deferredAskUser bool    // true when AskUserQuestion detected, waiting for input to complete
+	var blocked bool            // true after handleBlockingTool — suppresses ensureRunning
 
 	// Write tool diff tracking: capture old file content before the write happens.
 	var writeOldContent string
@@ -314,7 +316,9 @@ func (m *Manager) readOutput(beanID string, stdout io.Reader, workDir string, pr
 		if ev.Type == eventUnknown {
 			// Log only the event type, not the full payload (which can be huge)
 			eventType := "?"
-			var peek struct{ Type string `json:"type"` }
+			var peek struct {
+				Type string `json:"type"`
+			}
 			if json.Unmarshal(line, &peek) == nil && peek.Type != "" {
 				eventType = peek.Type
 			}
@@ -786,6 +790,10 @@ func (m *Manager) autoApproveModeSwitch(beanID string, interaction *PendingInter
 	}
 
 	m.notify(beanID)
+
+	if !hasProc {
+		return
+	}
 
 	// Respawn with the new mode via --resume. Runs in a goroutine because
 	// we're inside readOutput (same goroutine as spawnAndRun).
