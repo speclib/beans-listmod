@@ -8,19 +8,19 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/hmans/beans/internal/ui"
 	"github.com/hmans/beans/pkg/bean"
-	"github.com/hmans/beans/pkg/config"
 	"github.com/hmans/beans/pkg/beangraph"
 	"github.com/hmans/beans/pkg/beangraph/model"
-	"github.com/hmans/beans/internal/ui"
+	"github.com/hmans/beans/pkg/config"
 )
 
 // beanItem wraps a Bean to implement list.Item, with tree context
 type beanItem struct {
-	bean            *bean.Bean
-	cfg             *config.Config
-	treePrefix      string // tree prefix for rendering (e.g., "├─" or "  └─")
-	matched         bool   // true if bean matched filter (vs. ancestor shown for context)
+	bean           *bean.Bean
+	cfg            *config.Config
+	treePrefix     string // tree prefix for rendering (e.g., "├─" or "  └─")
+	matched        bool   // true if bean matched filter (vs. ancestor shown for context)
 	implicitStatus string // implicit terminal status from an ancestor, if any
 }
 
@@ -78,23 +78,23 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		item.bean.Type,
 		item.bean.Title,
 		ui.BeanRowConfig{
-			StatusColor:     colors.StatusColor,
-			TypeColor:       colors.TypeColor,
-			PriorityColor:   colors.PriorityColor,
-			Priority:        item.bean.Priority,
-			IsArchive:       colors.IsArchive,
-			MaxTitleWidth:   maxTitleWidth,
-			ShowCursor:      true,
-			IsSelected:      index == m.Index(),
-			IsMarked:        isMarked,
-			Tags:            item.bean.Tags,
-			ShowTags:        d.cols.ShowTags,
-			TagsColWidth:    d.cols.Tags,
-			MaxTags:         d.cols.MaxTags,
-			TreePrefix:      item.treePrefix,
-			Dimmed:          !item.matched,
-			IDColWidth:      d.idColWidth,
-			UseFullNames:    d.cols.UseFullTypeStatus,
+			StatusColor:    colors.StatusColor,
+			TypeColor:      colors.TypeColor,
+			PriorityColor:  colors.PriorityColor,
+			Priority:       item.bean.Priority,
+			IsArchive:      colors.IsArchive,
+			MaxTitleWidth:  maxTitleWidth,
+			ShowCursor:     true,
+			IsSelected:     index == m.Index(),
+			IsMarked:       isMarked,
+			Tags:           item.bean.Tags,
+			ShowTags:       d.cols.ShowTags,
+			TagsColWidth:   d.cols.Tags,
+			MaxTags:        d.cols.MaxTags,
+			TreePrefix:     item.treePrefix,
+			Dimmed:         !item.matched,
+			IDColWidth:     d.idColWidth,
+			UseFullNames:   d.cols.UseFullTypeStatus,
 			ImplicitStatus: item.implicitStatus,
 		},
 	)
@@ -117,7 +117,8 @@ type listModel struct {
 	idColWidth int                  // ID column width (accounts for tree depth)
 
 	// Active filters
-	tagFilter string // if set, only show beans with this tag
+	tagFilter     string // if set, only show beans with this tag
+	hideCompleted bool   // if true, completed beans are hidden from the list
 
 	// Multi-select state
 	selectedBeans map[string]bool // IDs of beans marked for multi-edit
@@ -200,6 +201,11 @@ func (m listModel) loadBeans() tea.Msg {
 		}
 	}
 
+	// Hide completed beans when the toggle is active
+	if m.hideCompleted {
+		filteredBeans = excludeCompleted(filteredBeans, implicitStatuses)
+	}
+
 	// Build tree and flatten it
 	tree := ui.BuildTree(filteredBeans, allBeans, sortFn, implicitStatuses)
 	items := ui.FlattenTree(tree)
@@ -219,6 +225,18 @@ func (m listModel) loadBeans() tea.Msg {
 	}
 
 	return beansLoadedMsg{items: items, idColWidth: idColWidth}
+}
+
+// excludeCompleted drops beans that are completed, explicitly or implicitly.
+func excludeCompleted(beans []*bean.Bean, implicitStatuses map[string]string) []*bean.Bean {
+	kept := make([]*bean.Bean, 0, len(beans))
+	for _, b := range beans {
+		if b.Status == "completed" || implicitStatuses[b.ID] == "completed" {
+			continue
+		}
+		kept = append(kept, b)
+	}
+	return kept
 }
 
 // setTagFilter sets the tag filter
@@ -259,10 +277,10 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 		m.hasTags = false
 		for i, flatItem := range msg.items {
 			items[i] = beanItem{
-				bean:            flatItem.Bean,
-				cfg:             m.config,
-				treePrefix:      flatItem.TreePrefix,
-				matched:         flatItem.Matched,
+				bean:           flatItem.Bean,
+				cfg:            m.config,
+				treePrefix:     flatItem.TreePrefix,
+				matched:        flatItem.Matched,
 				implicitStatus: flatItem.ImplicitStatus,
 			}
 			if len(flatItem.Bean.Tags) > 0 {
@@ -418,6 +436,9 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 				return m, func() tea.Msg {
 					return openCreateModalMsg{}
 				}
+			case "v":
+				m.hideCompleted = !m.hideCompleted
+				return m, m.loadBeans
 			case "e":
 				// Open editor for selected bean
 				if item, ok := m.list.SelectedItem().(beanItem); ok {
@@ -492,6 +513,17 @@ func (m *listModel) updateDelegate() {
 	m.list.SetDelegate(delegate)
 }
 
+func (m listModel) title() string {
+	title := "Beans"
+	if m.tagFilter != "" {
+		title += fmt.Sprintf(" [tag: %s]", m.tagFilter)
+	}
+	if m.hideCompleted {
+		title += " [completed hidden]"
+	}
+	return title
+}
+
 func (m listModel) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress q to quit.", m.err)
@@ -502,11 +534,7 @@ func (m listModel) View() string {
 	}
 
 	// Update title based on active filter
-	if m.tagFilter != "" {
-		m.list.Title = fmt.Sprintf("Beans [tag: %s]", m.tagFilter)
-	} else {
-		m.list.Title = "Beans"
-	}
+	m.list.Title = m.title()
 
 	// Inner height: total height minus border (2) minus footer (1) minus padding (1)
 	return m.viewContent(m.height-4) + "\n" + m.Footer()
@@ -584,6 +612,10 @@ func (m listModel) Footer() string {
 		footer += help
 	}
 
+	if m.hideCompleted {
+		footer += "  " + helpKeyStyle.Render("v") + " " + helpStyle.Render("show completed")
+	}
+
 	return footer
 }
 
@@ -604,12 +636,7 @@ func (m listModel) ViewConstrained(width, height int) string {
 	m.updateDelegate()
 
 	// Update title based on active filter
-	if m.tagFilter != "" {
-		m.list.Title = fmt.Sprintf("Beans [tag: %s]", m.tagFilter)
-	} else {
-		m.list.Title = "Beans"
-	}
+	m.list.Title = m.title()
 
 	return m.viewContent(innerHeight)
 }
-

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/hmans/beans/pkg/bean"
@@ -36,7 +37,7 @@ func TestSortBeans(t *testing.T) {
 			{ID: "1", Status: "todo", Type: "task", Priority: "low", Title: "A"},
 			{ID: "2", Status: "todo", Type: "task", Priority: "critical", Title: "B"},
 			{ID: "3", Status: "todo", Type: "task", Priority: "high", Title: "C"},
-			{ID: "4", Status: "todo", Type: "task", Priority: "", Title: "D"},       // empty = normal
+			{ID: "4", Status: "todo", Type: "task", Priority: "", Title: "D"}, // empty = normal
 			{ID: "5", Status: "todo", Type: "task", Priority: "deferred", Title: "E"},
 		}
 
@@ -175,6 +176,84 @@ func TestSortBeans(t *testing.T) {
 			t.Error("single bean should remain unchanged")
 		}
 	})
+}
+
+func TestExcludeCompleted(t *testing.T) {
+	tests := []struct {
+		name     string
+		beans    []*bean.Bean
+		implicit map[string]string
+		want     []string
+	}{
+		{
+			name:  "explicitly completed bean is dropped",
+			beans: []*bean.Bean{{ID: "a", Status: "completed"}},
+			want:  nil,
+		},
+		{
+			name:     "implicitly completed bean is dropped",
+			beans:    []*bean.Bean{{ID: "a", Status: "todo"}},
+			implicit: map[string]string{"a": "completed"},
+			want:     nil,
+		},
+		{
+			name:  "scrapped bean is kept",
+			beans: []*bean.Bean{{ID: "a", Status: "scrapped"}},
+			want:  []string{"a"},
+		},
+		{
+			name:     "implicitly scrapped bean is kept",
+			beans:    []*bean.Bean{{ID: "a", Status: "todo"}},
+			implicit: map[string]string{"a": "scrapped"},
+			want:     []string{"a"},
+		},
+		{
+			name:  "active bean is kept",
+			beans: []*bean.Bean{{ID: "a", Status: "in-progress"}},
+			want:  []string{"a"},
+		},
+		{
+			name:  "missing implicit entry is kept",
+			beans: []*bean.Bean{{ID: "a", Status: "todo"}},
+			want:  []string{"a"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := excludeCompleted(tt.beans, tt.implicit)
+			gotIDs := make([]string, len(got))
+			for i, b := range got {
+				gotIDs[i] = b.ID
+			}
+			if !slices.Equal(gotIDs, tt.want) {
+				t.Errorf("excludeCompleted() = %v, want %v", gotIDs, tt.want)
+			}
+		})
+	}
+}
+
+func TestListTitle(t *testing.T) {
+	tests := []struct {
+		name          string
+		tagFilter     string
+		hideCompleted bool
+		want          string
+	}{
+		{name: "default", want: "Beans"},
+		{name: "tag filter", tagFilter: "backend", want: "Beans [tag: backend]"},
+		{name: "completed hidden", hideCompleted: true, want: "Beans [completed hidden]"},
+		{name: "tag filter and completed hidden", tagFilter: "backend", hideCompleted: true, want: "Beans [tag: backend] [completed hidden]"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := listModel{tagFilter: tt.tagFilter, hideCompleted: tt.hideCompleted}
+			if got := m.title(); got != tt.want {
+				t.Errorf("title() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestCompareBeansByStatusPriorityAndType(t *testing.T) {
