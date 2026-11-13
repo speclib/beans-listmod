@@ -117,8 +117,8 @@ type listModel struct {
 	idColWidth int                  // ID column width (accounts for tree depth)
 
 	// Active filters
-	tagFilter     string // if set, only show beans with this tag
-	hideCompleted bool   // if true, completed beans are hidden from the list
+	tagFilter  string // if set, only show beans with this tag
+	hideClosed bool   // if true, completed and scrapped beans are hidden from the list
 
 	// Multi-select state
 	selectedBeans map[string]bool // IDs of beans marked for multi-edit
@@ -201,9 +201,8 @@ func (m listModel) loadBeans() tea.Msg {
 		}
 	}
 
-	// Hide completed beans when the toggle is active
-	if m.hideCompleted {
-		filteredBeans = excludeCompleted(filteredBeans, implicitStatuses)
+	if m.hideClosed {
+		filteredBeans = excludeClosed(filteredBeans, implicitStatuses)
 	}
 
 	// Build tree and flatten it
@@ -227,16 +226,19 @@ func (m listModel) loadBeans() tea.Msg {
 	return beansLoadedMsg{items: items, idColWidth: idColWidth}
 }
 
-// excludeCompleted drops beans that are completed, explicitly or implicitly.
-func excludeCompleted(beans []*bean.Bean, implicitStatuses map[string]string) []*bean.Bean {
+func excludeClosed(beans []*bean.Bean, implicitStatuses map[string]string) []*bean.Bean {
 	kept := make([]*bean.Bean, 0, len(beans))
 	for _, b := range beans {
-		if b.Status == "completed" || implicitStatuses[b.ID] == "completed" {
+		if isClosedStatus(b.Status) || isClosedStatus(implicitStatuses[b.ID]) {
 			continue
 		}
 		kept = append(kept, b)
 	}
 	return kept
+}
+
+func isClosedStatus(status string) bool {
+	return status == "completed" || status == "scrapped"
 }
 
 // setTagFilter sets the tag filter
@@ -437,7 +439,7 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 					return openCreateModalMsg{}
 				}
 			case "v":
-				m.hideCompleted = !m.hideCompleted
+				m.hideClosed = !m.hideClosed
 				return m, m.loadBeans
 			case "e":
 				// Open editor for selected bean
@@ -518,8 +520,8 @@ func (m listModel) title() string {
 	if m.tagFilter != "" {
 		title += fmt.Sprintf(" [tag: %s]", m.tagFilter)
 	}
-	if m.hideCompleted {
-		title += " [completed hidden]"
+	if m.hideClosed {
+		title += " [completed/scrapped hidden]"
 	}
 	return title
 }
@@ -612,8 +614,8 @@ func (m listModel) Footer() string {
 		footer += help
 	}
 
-	if m.hideCompleted {
-		footer += "  " + helpKeyStyle.Render("v") + " " + helpStyle.Render("show completed")
+	if m.hideClosed {
+		footer += "  " + helpKeyStyle.Render("v") + " " + helpStyle.Render("show completed/scrapped")
 	}
 
 	return footer

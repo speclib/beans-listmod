@@ -178,7 +178,7 @@ func TestSortBeans(t *testing.T) {
 	})
 }
 
-func TestExcludeCompleted(t *testing.T) {
+func TestExcludeClosed(t *testing.T) {
 	tests := []struct {
 		name     string
 		beans    []*bean.Bean
@@ -197,15 +197,20 @@ func TestExcludeCompleted(t *testing.T) {
 			want:     nil,
 		},
 		{
-			name:  "scrapped bean is kept",
+			name:  "scrapped bean is dropped",
 			beans: []*bean.Bean{{ID: "a", Status: "scrapped"}},
-			want:  []string{"a"},
+			want:  nil,
 		},
 		{
-			name:     "implicitly scrapped bean is kept",
+			name:     "implicitly scrapped bean is dropped",
 			beans:    []*bean.Bean{{ID: "a", Status: "todo"}},
 			implicit: map[string]string{"a": "scrapped"},
-			want:     []string{"a"},
+			want:     nil,
+		},
+		{
+			name:  "draft bean is kept",
+			beans: []*bean.Bean{{ID: "a", Status: "draft"}},
+			want:  []string{"a"},
 		},
 		{
 			name:  "active bean is kept",
@@ -221,13 +226,13 @@ func TestExcludeCompleted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := excludeCompleted(tt.beans, tt.implicit)
+			got := excludeClosed(tt.beans, tt.implicit)
 			gotIDs := make([]string, len(got))
 			for i, b := range got {
 				gotIDs[i] = b.ID
 			}
 			if !slices.Equal(gotIDs, tt.want) {
-				t.Errorf("excludeCompleted() = %v, want %v", gotIDs, tt.want)
+				t.Errorf("excludeClosed() = %v, want %v", gotIDs, tt.want)
 			}
 		})
 	}
@@ -235,20 +240,20 @@ func TestExcludeCompleted(t *testing.T) {
 
 func TestListTitle(t *testing.T) {
 	tests := []struct {
-		name          string
-		tagFilter     string
-		hideCompleted bool
-		want          string
+		name       string
+		tagFilter  string
+		hideClosed bool
+		want       string
 	}{
 		{name: "default", want: "Beans"},
 		{name: "tag filter", tagFilter: "backend", want: "Beans [tag: backend]"},
-		{name: "completed hidden", hideCompleted: true, want: "Beans [completed hidden]"},
-		{name: "tag filter and completed hidden", tagFilter: "backend", hideCompleted: true, want: "Beans [tag: backend] [completed hidden]"},
+		{name: "closed hidden", hideClosed: true, want: "Beans [completed/scrapped hidden]"},
+		{name: "tag filter and closed hidden", tagFilter: "backend", hideClosed: true, want: "Beans [tag: backend] [completed/scrapped hidden]"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := listModel{tagFilter: tt.tagFilter, hideCompleted: tt.hideCompleted}
+			m := listModel{tagFilter: tt.tagFilter, hideClosed: tt.hideClosed}
 			if got := m.title(); got != tt.want {
 				t.Errorf("title() = %q, want %q", got, tt.want)
 			}
