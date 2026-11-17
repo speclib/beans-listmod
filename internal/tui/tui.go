@@ -12,10 +12,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hmans/beans/pkg/beancore"
-	"github.com/hmans/beans/pkg/config"
-	"github.com/hmans/beans/pkg/safepath"
 	"github.com/hmans/beans/pkg/beangraph"
 	"github.com/hmans/beans/pkg/beangraph/model"
+	"github.com/hmans/beans/pkg/config"
+	"github.com/hmans/beans/pkg/safepath"
 )
 
 // viewState represents which view is currently active
@@ -289,8 +289,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.parentPicker.Init()
 
 	case closeParentPickerMsg:
-		// Return to previous view and refresh in case beans changed while picker was open
 		a.state = a.previousState
+		if a.previousState == viewCreateModal {
+			return a, nil
+		}
+		// Return to previous view and refresh in case beans changed while picker was open
 		return a, a.list.loadBeans
 
 	case openStatusPickerMsg:
@@ -444,7 +447,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openCreateModalMsg:
 		a.previousState = a.state
-		a.createModal = newCreateModalModel(a.width, a.height)
+		a.createModal = newCreateModalModel(a.resolver, a.config, msg.parentID, a.width, a.height)
 		a.state = viewCreateModal
 		return a, a.createModal.Init()
 
@@ -455,10 +458,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case beanCreatedMsg:
 		// Create the bean via GraphQL mutation with draft status
 		draftStatus := "draft"
-		createdBean, err := a.resolver.CreateBean(context.Background(), model.CreateBeanInput{
+		input := model.CreateBeanInput{
 			Title:  msg.title,
 			Status: &draftStatus,
-		})
+		}
+		if msg.parentID != "" {
+			input.Parent = &msg.parentID
+		}
+		createdBean, err := a.resolver.CreateBean(context.Background(), input)
 		if err != nil {
 			// TODO: Show error to user
 			a.state = a.previousState
@@ -519,6 +526,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case parentSelectedMsg:
+		if a.previousState == viewCreateModal {
+			a.createModal.parentID = msg.parentID
+			a.createModal.focus = focusTitle
+			a.createModal.textInput.Focus()
+			a.state = viewCreateModal
+			return a, nil
+		}
 		// Set the new parent via GraphQL mutation for all beans
 		var parentID *string
 		if msg.parentID != "" {
@@ -696,6 +710,8 @@ func (a *App) getBackgroundView() string {
 		return a.list.View()
 	case viewDetail:
 		return a.detail.View()
+	case viewCreateModal:
+		return a.createModal.ModalView(a.list.View(), a.width, a.height)
 	default:
 		return a.list.View()
 	}

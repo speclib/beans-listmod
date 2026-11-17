@@ -237,6 +237,16 @@ func excludeClosed(beans []*bean.Bean, implicitStatuses map[string]string) []*be
 	return kept
 }
 
+func suggestedParent(item beanItem) string {
+	if item.bean.Type != "milestone" && item.bean.Type != "epic" {
+		return ""
+	}
+	if isClosedStatus(item.bean.Status) || isClosedStatus(item.implicitStatus) {
+		return ""
+	}
+	return item.bean.ID
+}
+
 func isClosedStatus(status string) bool {
 	return status == "completed" || status == "scrapped"
 }
@@ -434,9 +444,12 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 					}
 				}
 			case "c":
-				// Open create modal
+				parentID := ""
+				if item, ok := m.list.SelectedItem().(beanItem); ok {
+					parentID = suggestedParent(item)
+				}
 				return m, func() tea.Msg {
-					return openCreateModalMsg{}
+					return openCreateModalMsg{parentID: parentID}
 				}
 			case "v":
 				m.hideClosed = !m.hideClosed

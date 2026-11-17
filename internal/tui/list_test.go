@@ -238,6 +238,66 @@ func TestExcludeClosed(t *testing.T) {
 	}
 }
 
+func TestSuggestedParent(t *testing.T) {
+	tests := []struct {
+		name string
+		item beanItem
+		want string
+	}{
+		{
+			name: "milestone",
+			item: beanItem{bean: &bean.Bean{ID: "m1", Type: "milestone", Status: "todo"}},
+			want: "m1",
+		},
+		{
+			name: "epic",
+			item: beanItem{bean: &bean.Bean{ID: "e1", Type: "epic", Status: "in-progress"}},
+			want: "e1",
+		},
+		{
+			name: "draft milestone",
+			item: beanItem{bean: &bean.Bean{ID: "m2", Type: "milestone", Status: "draft"}},
+			want: "m2",
+		},
+		{
+			name: "completed milestone",
+			item: beanItem{bean: &bean.Bean{ID: "m3", Type: "milestone", Status: "completed"}},
+			want: "",
+		},
+		{
+			name: "scrapped epic",
+			item: beanItem{bean: &bean.Bean{ID: "e2", Type: "epic", Status: "scrapped"}},
+			want: "",
+		},
+		{
+			name: "implicitly completed epic",
+			item: beanItem{
+				bean:           &bean.Bean{ID: "e3", Type: "epic", Status: "in-progress"},
+				implicitStatus: "completed",
+			},
+			want: "",
+		},
+		{
+			name: "task",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo"}},
+			want: "",
+		},
+		{
+			name: "feature",
+			item: beanItem{bean: &bean.Bean{ID: "f1", Type: "feature", Status: "todo"}},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := suggestedParent(tt.item); got != tt.want {
+				t.Errorf("suggestedParent() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestListTitle(t *testing.T) {
 	tests := []struct {
 		name       string
