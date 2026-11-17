@@ -4,7 +4,10 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hmans/beans/pkg/bean"
+	"github.com/hmans/beans/pkg/config"
 )
 
 func TestSortBeans(t *testing.T) {
@@ -293,6 +296,50 @@ func TestSuggestedParent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := suggestedParent(tt.item); got != tt.want {
 				t.Errorf("suggestedParent() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestListCreatePreselectsParent(t *testing.T) {
+	tests := []struct {
+		name string
+		item beanItem
+		want string
+	}{
+		{
+			name: "open milestone",
+			item: beanItem{bean: &bean.Bean{ID: "m1", Type: "milestone", Status: "in-progress", Title: "Release"}},
+			want: "m1",
+		},
+		{
+			name: "open epic",
+			item: beanItem{bean: &bean.Bean{ID: "e1", Type: "epic", Status: "todo", Title: "Epic"}},
+			want: "e1",
+		},
+		{
+			name: "task",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo", Title: "Task"}},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newListModel(nil, config.Default())
+			m.list.SetItems([]list.Item{tt.item})
+			m.list.Select(0)
+
+			_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+			if cmd == nil {
+				t.Fatal("c returned no command")
+			}
+			msg, ok := cmd().(openCreateModalMsg)
+			if !ok {
+				t.Fatalf("message = %T, want openCreateModalMsg", cmd())
+			}
+			if msg.parentID != tt.want {
+				t.Errorf("parentID = %q, want %q", msg.parentID, tt.want)
 			}
 		})
 	}

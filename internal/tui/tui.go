@@ -122,6 +122,9 @@ type App struct {
 	// Modal state - tracks view behind modal pickers
 	previousState viewState
 
+	// View to return to when the create modal closes
+	createBackground viewState
+
 	// Editor state - tracks bean being edited to update updated_at on save
 	editingBeanID      string
 	editingBeanModTime time.Time
@@ -291,6 +294,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeParentPickerMsg:
 		a.state = a.previousState
 		if a.previousState == viewCreateModal {
+			a.previousState = a.createBackground
 			return a, nil
 		}
 		// Return to previous view and refresh in case beans changed while picker was open
@@ -447,12 +451,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openCreateModalMsg:
 		a.previousState = a.state
+		a.createBackground = a.state
 		a.createModal = newCreateModalModel(a.resolver, a.config, msg.parentID, a.width, a.height)
 		a.state = viewCreateModal
 		return a, a.createModal.Init()
 
 	case closeCreateModalMsg:
-		a.state = a.previousState
+		a.state = a.createBackground
 		return a, nil
 
 	case beanCreatedMsg:
@@ -530,6 +535,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.createModal.parentID = msg.parentID
 			a.createModal.focus = focusTitle
 			a.createModal.textInput.Focus()
+			a.previousState = a.createBackground
 			a.state = viewCreateModal
 			return a, nil
 		}

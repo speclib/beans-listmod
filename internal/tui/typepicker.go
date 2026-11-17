@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hmans/beans/pkg/config"
 	"github.com/hmans/beans/internal/ui"
+	"github.com/hmans/beans/pkg/config"
 )
 
 // typeSelectedMsg is sent when a type is selected from the picker

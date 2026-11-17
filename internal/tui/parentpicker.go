@@ -10,11 +10,11 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/hmans/beans/internal/ui"
 	"github.com/hmans/beans/pkg/bean"
 	"github.com/hmans/beans/pkg/beancore"
-	"github.com/hmans/beans/pkg/config"
 	"github.com/hmans/beans/pkg/beangraph"
-	"github.com/hmans/beans/internal/ui"
+	"github.com/hmans/beans/pkg/config"
 )
 
 // parentSelectedMsg is sent when a parent is selected from the picker
@@ -185,7 +185,7 @@ func newParentPickerModel(beanIDs []string, beanTitle string, beanTypes []string
 	modalWidth := max(40, min(80, width*60/100))
 	modalHeight := max(10, min(20, height*60/100))
 	// List dimensions within modal (account for border, padding, subtitle, help)
-	listWidth := modalWidth - 6  // border (2) + padding (4)
+	listWidth := modalWidth - 6   // border (2) + padding (4)
 	listHeight := modalHeight - 7 // border (2) + subtitle (1) + help (1) + padding (3)
 
 	l := list.New(items, delegate, listWidth, listHeight)

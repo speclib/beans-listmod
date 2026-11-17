@@ -13,10 +13,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hmans/beans/pkg/bean"
-	"github.com/hmans/beans/pkg/config"
-	"github.com/hmans/beans/pkg/beangraph"
 	"github.com/hmans/beans/internal/ui"
+	"github.com/hmans/beans/pkg/bean"
+	"github.com/hmans/beans/pkg/beangraph"
+	"github.com/hmans/beans/pkg/config"
 )
 
 // Cached glamour renderer - initialized once per width
@@ -50,16 +50,18 @@ type resolvedLink struct {
 
 // linkItem wraps a resolvedLink to implement list.Item
 type linkItem struct {
-	link   resolvedLink
-	cfg    *config.Config
-	width  int
-	cols   ui.ResponsiveColumns
-	label  string // pre-computed label like "Blocks:" or "Blocked by:"
+	link  resolvedLink
+	cfg   *config.Config
+	width int
+	cols  ui.ResponsiveColumns
+	label string // pre-computed label like "Blocks:" or "Blocked by:"
 }
 
 func (i linkItem) Title() string       { return i.link.bean.Title }
 func (i linkItem) Description() string { return i.link.bean.ID }
-func (i linkItem) FilterValue() string { return i.link.bean.Title + " " + i.link.bean.ID + " " + i.label }
+func (i linkItem) FilterValue() string {
+	return i.link.bean.Title + " " + i.link.bean.ID + " " + i.label
+}
 
 // linkDelegate handles rendering of link list items
 type linkDelegate struct {
@@ -661,7 +663,6 @@ func compareBeansByStatusPriorityAndType(a, b *bean.Bean, statusNames, priorityN
 	// Quaternary: title (case-insensitive)
 	return strings.ToLower(a.Title) < strings.ToLower(b.Title)
 }
-
 
 func (m detailModel) renderBody(_ int) string {
 	if m.bean.Body == "" {

@@ -10,17 +10,17 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hmans/beans/pkg/bean"
-	"github.com/hmans/beans/pkg/config"
-	"github.com/hmans/beans/pkg/beangraph"
 	"github.com/hmans/beans/internal/ui"
+	"github.com/hmans/beans/pkg/bean"
+	"github.com/hmans/beans/pkg/beangraph"
+	"github.com/hmans/beans/pkg/config"
 )
 
 // blockingConfirmedMsg is sent when blocking changes are confirmed
 type blockingConfirmedMsg struct {
-	beanID  string            // the bean we're modifying
-	toAdd   []string          // IDs to add to blocking
-	toRemove []string         // IDs to remove from blocking
+	beanID   string   // the bean we're modifying
+	toAdd    []string // IDs to add to blocking
+	toRemove []string // IDs to remove from blocking
 }
 
 // closeBlockingPickerMsg is sent when the blocking picker is cancelled
@@ -92,10 +92,10 @@ func (d blockingItemDelegate) Render(w io.Writer, m list.Model, index int, listI
 // blockingPickerModel is the model for the blocking picker view
 type blockingPickerModel struct {
 	list             list.Model
-	beanID           string           // the bean we're setting blocking for
-	beanTitle        string           // the bean's title
-	originalBlocking map[string]bool  // original state (for computing diff)
-	pendingBlocking  map[string]bool  // pending state (toggled by space)
+	beanID           string          // the bean we're setting blocking for
+	beanTitle        string          // the bean's title
+	originalBlocking map[string]bool // original state (for computing diff)
+	pendingBlocking  map[string]bool // pending state (toggled by space)
 	cfg              *config.Config
 	width            int
 	height           int

@@ -176,6 +176,71 @@ func TestParentSelectedUpdatesCreateModal(t *testing.T) {
 	}
 }
 
+func TestCreateModalEscapeReturnsToBackground(t *testing.T) {
+	app := &App{
+		state:            viewCreateModal,
+		previousState:    viewList,
+		createBackground: viewList,
+		createModal:      newTestCreateModal("m1"),
+	}
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("esc returned no command")
+	}
+	app.Update(cmd())
+
+	if app.state != viewList {
+		t.Errorf("state = %v, want viewList", app.state)
+	}
+}
+
+func TestCreateModalEscapeAfterPickerSelection(t *testing.T) {
+	app := &App{
+		state:            viewParentPicker,
+		previousState:    viewCreateModal,
+		createBackground: viewList,
+		createModal:      newTestCreateModal("m1"),
+	}
+
+	app.Update(parentSelectedMsg{parentID: "e1"})
+	if app.state != viewCreateModal {
+		t.Fatalf("after selection: state = %v, want viewCreateModal", app.state)
+	}
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("esc returned no command")
+	}
+	app.Update(cmd())
+	if app.state != viewList {
+		t.Errorf("after esc: state = %v, want viewList", app.state)
+	}
+}
+
+func TestCreateModalEscapeAfterPickerCancel(t *testing.T) {
+	app := &App{
+		state:            viewParentPicker,
+		previousState:    viewCreateModal,
+		createBackground: viewList,
+		createModal:      newTestCreateModal("m1"),
+	}
+
+	app.Update(closeParentPickerMsg{})
+	if app.state != viewCreateModal {
+		t.Fatalf("after cancel: state = %v, want viewCreateModal", app.state)
+	}
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("esc returned no command")
+	}
+	app.Update(cmd())
+	if app.state != viewList {
+		t.Errorf("after esc: state = %v, want viewList", app.state)
+	}
+}
+
 func TestCloseParentPickerReturnsToCreateModal(t *testing.T) {
 	app := &App{
 		state:         viewParentPicker,
