@@ -237,14 +237,46 @@ func excludeClosed(beans []*bean.Bean, implicitStatuses map[string]string) []*be
 	return kept
 }
 
-func suggestedParent(item beanItem) string {
-	if item.bean.Type != "milestone" && item.bean.Type != "epic" {
-		return ""
+func suggestedParent(item beanItem, allBeans []*bean.Bean, implicitStatuses map[string]string) string {
+	if isContainerType(item.bean.Type) {
+		if isClosedStatus(item.bean.Status) || isClosedStatus(item.implicitStatus) {
+			return ""
+		}
+		return item.bean.ID
 	}
-	if isClosedStatus(item.bean.Status) || isClosedStatus(item.implicitStatus) {
-		return ""
+
+	byID := make(map[string]*bean.Bean, len(allBeans))
+	for _, b := range allBeans {
+		byID[b.ID] = b
 	}
-	return item.bean.ID
+
+	var epicID string
+	visited := map[string]bool{item.bean.ID: true}
+	current := item.bean.Parent
+	for current != "" && !visited[current] {
+		visited[current] = true
+		ancestor, ok := byID[current]
+		if !ok {
+			break
+		}
+		if !isClosedStatus(ancestor.Status) && !isClosedStatus(implicitStatuses[current]) {
+			switch ancestor.Type {
+			case "milestone":
+				return ancestor.ID
+			case "epic":
+				if epicID == "" {
+					epicID = ancestor.ID
+				}
+			}
+		}
+		current = ancestor.Parent
+	}
+
+	return epicID
+}
+
+func isContainerType(beanType string) bool {
+	return beanType == "milestone" || beanType == "epic"
 }
 
 func isClosedStatus(status string) bool {
@@ -446,7 +478,17 @@ func (m listModel) Update(msg tea.Msg) (listModel, tea.Cmd) {
 			case "c":
 				parentID := ""
 				if item, ok := m.list.SelectedItem().(beanItem); ok {
-					parentID = suggestedParent(item)
+					var allBeans []*bean.Bean
+					implicitStatuses := make(map[string]string)
+					if m.resolver != nil {
+						allBeans, _ = m.resolver.Beans(context.Background(), nil)
+						for _, b := range allBeans {
+							if status, _ := m.resolver.Core.ImplicitStatus(b.ID); status != "" {
+								implicitStatuses[b.ID] = status
+							}
+						}
+					}
+					parentID = suggestedParent(item, allBeans, implicitStatuses)
 				}
 				return m, func() tea.Msg {
 					return openCreateModalMsg{parentID: parentID}

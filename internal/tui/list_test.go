@@ -243,9 +243,11 @@ func TestExcludeClosed(t *testing.T) {
 
 func TestSuggestedParent(t *testing.T) {
 	tests := []struct {
-		name string
-		item beanItem
-		want string
+		name     string
+		item     beanItem
+		beans    []*bean.Bean
+		implicit map[string]string
+		want     string
 	}{
 		{
 			name: "milestone",
@@ -290,11 +292,63 @@ func TestSuggestedParent(t *testing.T) {
 			item: beanItem{bean: &bean.Bean{ID: "f1", Type: "feature", Status: "todo"}},
 			want: "",
 		},
+		{
+			name: "task inside milestone",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo", Parent: "m1"}},
+			beans: []*bean.Bean{
+				{ID: "m1", Type: "milestone", Status: "in-progress"},
+			},
+			want: "m1",
+		},
+		{
+			name: "task under feature under epic under milestone",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo", Parent: "f1"}},
+			beans: []*bean.Bean{
+				{ID: "f1", Type: "feature", Status: "todo", Parent: "e1"},
+				{ID: "e1", Type: "epic", Status: "todo", Parent: "m1"},
+				{ID: "m1", Type: "milestone", Status: "todo"},
+			},
+			want: "m1",
+		},
+		{
+			name: "task under epic without milestone",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo", Parent: "e1"}},
+			beans: []*bean.Bean{
+				{ID: "e1", Type: "epic", Status: "todo"},
+			},
+			want: "e1",
+		},
+		{
+			name: "closed milestone ancestor is skipped",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo", Parent: "m1"}},
+			beans: []*bean.Bean{
+				{ID: "m1", Type: "milestone", Status: "completed"},
+			},
+			want: "",
+		},
+		{
+			name: "closed feature skipped in favour of milestone",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo", Parent: "f1"}},
+			beans: []*bean.Bean{
+				{ID: "f1", Type: "feature", Status: "completed", Parent: "m1"},
+				{ID: "m1", Type: "milestone", Status: "todo"},
+			},
+			want: "m1",
+		},
+		{
+			name: "implicitly closed milestone ancestor is skipped",
+			item: beanItem{bean: &bean.Bean{ID: "t1", Type: "task", Status: "todo", Parent: "m1"}},
+			beans: []*bean.Bean{
+				{ID: "m1", Type: "milestone", Status: "todo"},
+			},
+			implicit: map[string]string{"m1": "scrapped"},
+			want:     "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := suggestedParent(tt.item); got != tt.want {
+			if got := suggestedParent(tt.item, tt.beans, tt.implicit); got != tt.want {
 				t.Errorf("suggestedParent() = %q, want %q", got, tt.want)
 			}
 		})
