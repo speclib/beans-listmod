@@ -1,11 +1,11 @@
 ---
 # beans-e0ul
 title: 'TUI: also hide scrapped beans when completed are hidden'
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-11-13T14:57:50Z
-updated_at: 2026-11-17T19:18:57Z
+updated_at: 2026-11-17T19:21:23Z
 ---
 
 The v toggle in the TUI list hides completed beans but keeps scrapped ones. Scrapped beans should be hidden too.
